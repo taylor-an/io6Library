@@ -123,14 +123,8 @@ typedef struct {
 
 uint8_t DHCP_SOCKET;                      // Socket number for DHCP
 
-uint8_t DHCP_SIP[16];                      // DHCP Server IP address
-
 // Network information from DHCP Server
-uint8_t OLD_allocated_ip[16]   = {0, };    // Previous IP address V6
 uint8_t DHCP_allocated_ip[16]  = {0, };    // IP address from DHCPv6
-uint8_t DHCP_allocated_gw[16]  = {0, };    // Gateway address from DHCPv6
-uint8_t DHCP_allocated_sn[16]  = {0, };    // Subnet mask from DHCPv6
-uint8_t DHCP_allocated_dns[16] = {0, };    // DNS address from DHCPv6
 int8_t   dhcp_state        = STATE_DHCP6_INIT;   // DHCP state
 int8_t   dhcp_retry_count  = 0;
 
@@ -139,10 +133,7 @@ uint32_t dhcp_tick_next    			= DHCP_WAIT_TIME ;
 
 uint32_t DHCP_XID;      // Any number
 
-uint32_t a = 5;
-
 RIP_MSG pDHCPMSG;      // Buffer pointer for DHCP processing
-//RIP_MSG pDHCPMSG2;      // Buffer pointer for DHCP processing
 
 uint8_t HOST_NAME[] = DCHP_HOST_NAME;  
 
@@ -178,22 +169,49 @@ uint16_t serverid_len;
 uint16_t clientid_len;
 uint8_t status_msg[] = "";
 
-unsigned size;
-unsigned num; 
-unsigned num2 = 0;
-unsigned growby;
+uint16_t size;
+uint16_t num; 
+uint16_t num2 = 0;
+uint16_t growby;
 
-void InitDhcpOption(unsigned asize, unsigned agrowby)
+extern __heap_end;
+
+void InitDhcpOption(uint16_t asize, uint16_t agrowby)
 {
     size=asize;
     growby=agrowby;
     num=0;
+
+#if 0
+    uint32_t addr = sbrk(0);
+    printf("addr = 0x%x\r\n", addr);
+    free(addr);
+#endif
+
+    printf("================================================\r\n");
+#if 0
+    printf("Malloc size = 0x%x\r\n", 1024*10*sizeof(uint8_t));
+    pDHCPMSG.OPT = (uint8_t *)malloc(1024*10*sizeof(uint8_t));
+#else
+    printf("Malloc size = 0x%x\r\n", size*sizeof(uint8_t));
     pDHCPMSG.OPT = (uint8_t *)malloc(size*sizeof(uint8_t));
+#endif
+    printf("%s %d\r\n", __FILE__, __LINE__);
+    printf("Malloc pDHCPMSG.OPT 0x%x\r\n", pDHCPMSG.OPT);
+
+#if 0
+    // Hardfault
+    printf("sbrk(0) 0x%x\r\n", sbrk(0));
+#else
+    // Hardfault
+    printf("sbrk(0) 0x%x\r\n", sbrk());
+#endif
+    printf("================================================\r\n");
 }
 
 void InsertDhcpOption(int idx, uint8_t value)
 {
-    unsigned need;
+    uint16_t need;
  
     need=num+1;
     if (need > size) {
@@ -218,12 +236,17 @@ void AppendDhcpOption(uint8_t value)
 
 void UnInitDhcpOption(void)
 {
+    printf("================================================\r\n");
+    printf("%s %d\r\n", __FILE__, __LINE__);
+    printf("Free pDHCPMSG.OPT 0x%x\r\n", pDHCPMSG.OPT);
+    printf("================================================\r\n");
+
     free(pDHCPMSG.OPT);
 }
 
 void DumpDhcpOption(char *sMark)
 {
-     unsigned i;
+     uint16_t i;
      printf("%20s => size=%02d,num=%02d : ",sMark,size,num);
      for (i=num2;i<num;i++) {
           printf("%.2x ",pDHCPMSG.OPT[i]);
@@ -286,10 +309,12 @@ void send_DHCP_SOLICIT(void)
     AppendDhcpOption((uint8_t)((DHCP_XID & 0x00FF0000) >> 8));
     AppendDhcpOption((uint8_t)((DHCP_XID & 0x00FF0000) >> 0));DumpDhcpOption("Type&XID");
 	
+#if 0
     // Elapsed time   
-//    AppendDhcpOption(0x00);AppendDhcpOption(OPT_ELAPSED_TIME);
-//    AppendDhcpOption(0x00);AppendDhcpOption(0x02);
-//    AppendDhcpOption(0x0c);AppendDhcpOption(0x1c);DumpDhcpOption("Option Elapsed Time");
+    AppendDhcpOption(0x00);AppendDhcpOption(OPT_ELAPSED_TIME);
+    AppendDhcpOption(0x00);AppendDhcpOption(0x02);
+    AppendDhcpOption(0x0c);AppendDhcpOption(0x1c);DumpDhcpOption("Option Elapsed Time");
+#endif
     
     // Client Identifier
     AppendDhcpOption(0x00);AppendDhcpOption(OPT_CLIENTID);
@@ -380,7 +405,7 @@ uint8_t send_DHCP_REQUEST(void)
     printf("req : %x%x:%x%x:%x%x:%x%x:%x%x:%x%x:%x%x:%x%x \r\n",recv_IP[0],recv_IP[1],recv_IP[2],recv_IP[3],recv_IP[4],recv_IP[5],recv_IP[6],recv_IP[7],recv_IP[8],recv_IP[9],recv_IP[10],recv_IP[11],recv_IP[12],recv_IP[13],recv_IP[14],recv_IP[15]);
 #if 1
     // 20190318
-    InitDhcpOption(60,1);DumpDhcpOption("option init");
+    InitDhcpOption(64,1);DumpDhcpOption("option init");
 #else
     InitDhcpOption(110,1);DumpDhcpOption("option init");
 #endif
@@ -908,14 +933,12 @@ uint8_t DHCP_run2(void)
     uint8_t  type;
     uint8_t  ret;
 
-
-
     if(dhcp_state == STATE_DHCP6_STOP) {
     	return DHCP_STOPPED; // Check DHCP6 STOP State
     }
     
     if(getSn_SR(DHCP_SOCKET) != SOCK_UDP){ // Check DHCP SOCKET == UDP
-        WIZCHIP_WRITE(_Sn_TTLR_(DHCP_SOCKET), 0x01); // hop limit 1·Î ¼³Á¤
+        WIZCHIP_WRITE(_Sn_TTLR_(DHCP_SOCKET), 0x01); // hop limit 1ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         socket(DHCP_SOCKET, (Sn_MR_UDP6), DHCP_CLIENT_PORT, 0x00);
 		}
 	ret = DHCP_RUNNING;
@@ -942,7 +965,7 @@ uint8_t DHCP_run2(void)
     return ret;
 }
 
-uint8_t DHCP_run(void)
+uint8_t DHCP_run(wiz_NetInfo* netinfo)
 {
     uint8_t  type;
     uint8_t  ret;
@@ -951,7 +974,7 @@ uint8_t DHCP_run(void)
     if(dhcp_state == STATE_DHCP6_STOP) return DHCP_STOPPED; // Check DHCP6 STOP State
     
     if(getSn_SR(DHCP_SOCKET) != SOCK_UDP){ // Check DHCP SOCKET == UDP
-        WIZCHIP_WRITE(_Sn_TTLR_(DHCP_SOCKET), 0x01); // hop limit 1·Î ¼³Á¤
+        WIZCHIP_WRITE(_Sn_TTLR_(DHCP_SOCKET), 0x01); // hop limit 1ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½
         socket(DHCP_SOCKET, (Sn_MR_UDP6), DHCP_CLIENT_PORT, 0x00);
 		}
         
@@ -995,15 +1018,24 @@ uint8_t DHCP_run(void)
         case STATE_DHCP6_REQUEST : {
 #if 1
         	// 20190318
-        	NETUNLOCK();
+        	//NETUNLOCK();
+
+            #if 0
         	printf("\r\n%s(%d)\r\n", __FILE__, __LINE__);
         	for(i=0; i<16; i+=2)
         	{
         		printf("%x%x:", recv_IP[i], recv_IP[i+1]);
         	}
         	printf("\r\n\r\n");
+            #endif
+
+            #if 1
+            memcpy(netinfo->gua, recv_IP, 16);
+            #else
         	setGUAR(recv_IP);
-        	NETLOCK();
+            #endif
+
+        	//NETLOCK();
         	return DHCP_IP_LEASED;
 #else
             break;
@@ -1080,9 +1112,11 @@ void DHCP_init(uint8_t s, uint8_t * buf)
 	pDHCPMSG.OPT = buf;
 	DHCP_XID = 0x515789;
 
+#if 0
 	//WIZchip Netinfo Clear
 	setSIPR(zeroip);
 	setGAR(zeroip);
+#endif
 
 	reset_DHCP_timeout();
 	dhcp_state = STATE_DHCP6_INIT;

@@ -76,7 +76,7 @@ enum
    DHCP_STOPPED      ///< Stop procssing DHCP protocol
 };
 
-void InitDhcpOption(unsigned asize, unsigned agrowby);
+void InitDhcpOption(uint16_t asize, uint16_t agrowby);
 void InsertDhcpOption(int idx, uint8_t value);
 void DeleteDhcpOption(int idx);
 void AppendDhcpOption(uint8_t value);
@@ -108,7 +108,7 @@ void DHCP_time_handler(void);
  *
  * @note This function is always called by you main task.
  */ 
-uint8_t DHCP_run(void);
+uint8_t DHCP_run(wiz_NetInfo* netinfo);
 uint8_t DHCP_run2(void);
 
 /*
